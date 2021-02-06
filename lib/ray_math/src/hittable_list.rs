@@ -5,6 +5,10 @@ pub struct HittableList {
 }
 
 impl HittableList {
+    pub fn new() -> Self {
+        Self { list: Vec::new() }
+    }
+
     pub fn from(list: Vec<Box<dyn Hittable>>) -> Self {
         Self { list }
     }

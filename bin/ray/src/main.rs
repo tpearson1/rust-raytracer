@@ -28,52 +28,41 @@ fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth
 }
 
 fn write_image(file: &str) -> std::io::Result<()> {
+    println!("Starting");
+
     // Image
-    let aspect_ratio = 16.0 / 9.0;
-    let image_width = 400;
+    let aspect_ratio = 3.0 / 2.0;
+    let image_width = 1200;
     let image_height = ((image_width as f64) / aspect_ratio) as i32;
-    let samples_per_pixel = 100;
+    let samples_per_pixel = 500;
     let max_depth = 50;
 
-    let look_from = Point3::new(-2.0, 2.0, 1.0);
-    let look_at = Point3::new(0.0, 0.0, -1.0);
+    let look_from = Point3::new(13.0, 2.0, 3.0);
+    let look_at = Point3::zero();
     let camera = Camera::new(CameraConfig {
         look_from,
         look_at,
         view_up: Vec3::new(0.0, 1.0, 0.0),
-        vertical_field_of_view_degrees: 30.0,
+        vertical_field_of_view_degrees: 20.0,
         aspect_ratio,
-        aperture: 2.0,
-        focus_distance: (look_from - look_at).length(),
+        aperture: 0.1,
+        focus_distance: 10.0,
     });
+
+    println!("Configured Camera");
 
     // Render
     let mut f = File::create(file)?;
     write!(f, "P3\n{} {}\n255\n", image_width, image_height)?;
 
-    let world = {
-        let ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
-        let center = Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5)));
-        let left = Rc::new(Dielectric::new(1.5));
-        let right = Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.0));
-        HittableList::from(vec![
-            Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0, ground)),
-            Box::new(Sphere::from(Point3::new(0.0, 0.0, -1.0), 0.5, center)),
-            Box::new(Sphere::from(Point3::new(1.0, 0.0, -1.0), 0.5, right)),
-            // Make somthing that looks a bit like a bubble
-            Box::new(Sphere::from(
-                Point3::new(-1.0, 0.0, -1.0),
-                0.5,
-                left.clone(),
-            )),
-            Box::new(Sphere::from(Point3::new(-1.0, 0.0, -1.0), -0.4, left)),
-        ])
-    };
-
     let mut rand = rand::thread_rng();
+    let world = random_scene(&mut rand);
+
+    println!("Configured Scene, starting to render");
 
     for j in (0..image_height).rev() {
         print!("\rScanlines remaining: {:<6}", j);
+        std::io::stdout().flush()?;
         for i in 0..image_width {
             let mut pixel_color = Color::zero();
             for _ in 0..samples_per_pixel {
@@ -102,4 +91,76 @@ fn main() {
     if let Err(_) = write_image("image.ppm") {
         eprintln!("Failed to generate image");
     }
+}
+
+fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
+    let mut world = HittableList::new();
+
+    let ground_material = Rc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
+    world.add(Box::new(Sphere::from(
+        Point3::new(0.0, -1000.0, 0.0),
+        1000.0,
+        ground_material,
+    )));
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = rng.gen_range(0..20);
+            let center = Point3::new(
+                a as f64 + 0.9 * rng.gen_range(0.0..=1.0),
+                0.2,
+                b as f64 + 0.9 * rng.gen_range(0.0..=1.0),
+            );
+
+            if (center - Point3::new(4.0, 0.2, 0.0)).length() <= 0.9 {
+                continue;
+            }
+
+            let object = match choose_mat {
+                19 => {
+                    // Glass
+                    let mat = Rc::new(Dielectric::new(1.5));
+                    Sphere::from(center, 0.2, mat)
+                }
+                16 | 17 | 18 => {
+                    // Metal
+                    let albedo = Color::random(rng, 0.5, 1.0);
+                    let fuzz = rng.gen_range(0.0..=0.5);
+                    let mat = Rc::new(Metal::new(albedo, fuzz));
+                    Sphere::from(center, 0.2, mat)
+                }
+                _ => {
+                    // Diffuse
+                    let albedo = Color::random_unit(rng) * Color::random_unit(rng);
+                    let mat = Rc::new(Lambertian::new(albedo));
+                    Sphere::from(center, 0.2, mat)
+                }
+            };
+
+            world.add(Box::new(object));
+        }
+    }
+
+    let mat1 = Rc::new(Dielectric::new(1.5));
+    world.add(Box::new(Sphere::from(
+        Point3::new(0.0, 1.0, 0.0),
+        1.0,
+        mat1,
+    )));
+
+    let mat2 = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+    world.add(Box::new(Sphere::from(
+        Point3::new(-4.0, 1.0, 0.0),
+        1.0,
+        mat2,
+    )));
+
+    let mat3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
+    world.add(Box::new(Sphere::from(
+        Point3::new(4.0, 1.0, 0.0),
+        1.0,
+        mat3,
+    )));
+
+    world
 }
