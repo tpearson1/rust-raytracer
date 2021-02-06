@@ -1,26 +1,11 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use ray_math::{Color, Point3, Ray, Vec3};
+use ray_math::{Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3};
 
-fn hit_sphere(center: &Point3, radius: f64, ray: &Ray) -> f64 {
-    let oc = ray.origin() - *center;
-    let a = ray.direction().length_squared();
-    let half_b = oc.dot(&ray.direction());
-    let c = oc.length_squared() - radius * radius;
-    let discriminant = half_b * half_b - a * c;
-    if discriminant < 0.0 {
-        -1.0
-    } else {
-        (-half_b - discriminant.sqrt()) / a
-    }
-}
-
-fn ray_color(ray: &Ray) -> Color {
-    let t = hit_sphere(&Point3::new(0.0, 0.0, -1.0), 0.5, ray);
-    if t > 0.0 {
-        let normal = (ray.at(t) - Vec3::new(0.0, 0.0, -1.0)).normalized();
-        return 0.5 * Color::new(normal.x() + 1.0, normal.y() + 1.0, normal.z() + 1.0);
+fn ray_color(ray: &Ray, world: &dyn Hittable) -> Color {
+    if let Some(hit) = world.hit(ray, 0.0, f64::INFINITY) {
+        return 0.5 * (hit.normal() + Color::new(1.0, 1.0, 1.0));
     }
 
     let unit_direction = ray.direction().normalized();
@@ -47,11 +32,12 @@ fn write_image(file: &str) -> std::io::Result<()> {
 
     // Render
     let mut f = File::create(file)?;
-    f.write(b"P3\n")?;
-    f.write(image_width.to_string().as_bytes())?;
-    f.write(b" ")?;
-    f.write(image_height.to_string().as_bytes())?;
-    f.write(b"\n255\n")?;
+    write!(f, "P3\n{} {}\n255\n", image_width, image_height)?;
+
+    let world = HittableList::from(vec![
+        Box::new(Sphere::from(Point3::new(0.0, 0.0, -1.0), 0.5)),
+        Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0)),
+    ]);
 
     for j in (0..image_height).rev() {
         print!("\rScanlines remaining: {:<6}", j);
@@ -63,7 +49,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
                 lower_left_corner + u * horizontal + v * vertical - origin,
             );
 
-            let pixel_color = ray_color(&ray);
+            let pixel_color = ray_color(&ray, &world);
             pixel_color.write_color(&mut f)?;
         }
     }
