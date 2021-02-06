@@ -49,8 +49,14 @@ fn write_image(file: &str) -> std::io::Result<()> {
         HittableList::from(vec![
             Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0, ground)),
             Box::new(Sphere::from(Point3::new(0.0, 0.0, -1.0), 0.5, center)),
-            Box::new(Sphere::from(Point3::new(-1.0, 0.0, -1.0), 0.5, left)),
             Box::new(Sphere::from(Point3::new(1.0, 0.0, -1.0), 0.5, right)),
+            // Make somthing that looks a bit like a bubble
+            Box::new(Sphere::from(
+                Point3::new(-1.0, 0.0, -1.0),
+                0.5,
+                left.clone(),
+            )),
+            Box::new(Sphere::from(Point3::new(-1.0, 0.0, -1.0), -0.4, left)),
         ])
     };
 

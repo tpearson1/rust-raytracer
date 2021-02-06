@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::{Color, Ray, Vec3};
 
 use super::{Material, ScatterResult};
@@ -12,12 +14,18 @@ impl Dielectric {
             index_of_refraction,
         }
     }
+
+    fn reflectance(cosine: f64, ref_index: f64) -> f64 {
+        let mut r0 = (1.0 - ref_index) / (1.0 + ref_index);
+        r0 *= r0;
+        r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
+    }
 }
 
 impl Material for Dielectric {
     fn scatter(
         &self,
-        _rng: &mut dyn rand::RngCore,
+        rng: &mut dyn rand::RngCore,
         hit: &crate::HitResult,
         ray_in: &Ray,
     ) -> Option<ScatterResult> {
@@ -32,7 +40,9 @@ impl Material for Dielectric {
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 
         let cannot_refract = refraction_ratio * sin_theta > 1.0;
-        let direction = if cannot_refract {
+        let direction = if cannot_refract
+            || Self::reflectance(cos_theta, refraction_ratio) > rng.gen_range(0.0..=1.0)
+        {
             Vec3::reflect(&unit_direction, &hit.normal())
         } else {
             Vec3::refract(&unit_direction, &hit.normal(), refraction_ratio)
