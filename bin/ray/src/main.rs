@@ -4,7 +4,7 @@ use std::{fs::File, rc::Rc};
 use rand::Rng;
 use ray_math::{
     material::{Dielectric, Lambertian, Metal},
-    Camera, Color, Hittable, HittableList, Point3, Ray, Sphere,
+    Camera, CameraConfig, Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3,
 };
 
 fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth: usize) -> Color {
@@ -35,7 +35,13 @@ fn write_image(file: &str) -> std::io::Result<()> {
     let samples_per_pixel = 100;
     let max_depth = 50;
 
-    let camera = Camera::new(aspect_ratio);
+    let camera = Camera::new(CameraConfig {
+        look_from: Point3::new(-2.0, 2.0, 1.0),
+        look_at: Point3::new(0.0, 0.0, -1.0),
+        view_up: Vec3::new(0.0, 1.0, 0.0),
+        vertical_field_of_view_degrees: 30.0,
+        aspect_ratio,
+    });
 
     // Render
     let mut f = File::create(file)?;
