@@ -1,8 +1,11 @@
-use std::fs::File;
 use std::io::prelude::*;
+use std::{fs::File, rc::Rc};
 
 use rand::Rng;
-use ray_math::{Camera, Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3};
+use ray_math::{
+    material::{Lambertian, Metal},
+    Camera, Color, Hittable, HittableList, Point3, Ray, Sphere,
+};
 
 fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth: usize) -> Color {
     // If we've exceeded the ray bounce limit, no more light is gathered
@@ -11,19 +14,12 @@ fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth
     }
 
     if let Some(hit) = world.hit(ray, 0.001, f64::INFINITY) {
-        // Lambertian Diffuse
-        let target = hit.point() + hit.normal() + Vec3::random_unit(rng);
+        if let Some(scatter_result) = hit.material().scatter(rng, &hit, ray) {
+            let color = ray_color(&scatter_result.scattered, rng, world, depth - 1);
+            return scatter_result.attenuation * color;
+        }
 
-        // Alternative Diffuse
-        // let target = hit.point() + hit.normal() + Vec3::random_in_hemisphere(rng, &hit.normal());
-
-        let color = ray_color(
-            &Ray::new(hit.point(), target - hit.point()),
-            rng,
-            world,
-            depth - 1,
-        );
-        return 0.5 * color;
+        return Color::zero();
     }
 
     let unit_direction = ray.direction().normalized();
@@ -45,10 +41,18 @@ fn write_image(file: &str) -> std::io::Result<()> {
     let mut f = File::create(file)?;
     write!(f, "P3\n{} {}\n255\n", image_width, image_height)?;
 
-    let world = HittableList::from(vec![
-        Box::new(Sphere::from(Point3::new(0.0, 0.0, -1.0), 0.5)),
-        Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0)),
-    ]);
+    let world = {
+        let ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
+        let center = Rc::new(Lambertian::new(Color::new(0.7, 0.3, 0.3)));
+        let left = Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.3));
+        let right = Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 1.0));
+        HittableList::from(vec![
+            Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0, ground)),
+            Box::new(Sphere::from(Point3::new(0.0, 0.0, -1.0), 0.5, center)),
+            Box::new(Sphere::from(Point3::new(-1.0, 0.0, -1.0), 0.5, left)),
+            Box::new(Sphere::from(Point3::new(1.0, 0.0, -1.0), 0.5, right)),
+        ])
+    };
 
     let mut rand = rand::thread_rng();
 

@@ -5,6 +5,8 @@ mod ray;
 mod sphere;
 mod vec3;
 
+pub mod material;
+
 pub use camera::*;
 pub use hittable::*;
 pub use hittable_list::*;

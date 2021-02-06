@@ -112,6 +112,15 @@ impl Vec3 {
             -result
         }
     }
+
+    pub fn nearly_zero(&self) -> bool {
+        const S: f64 = 1e-8;
+        self.x.abs() < S && self.y.abs() < S && self.z.abs() < S
+    }
+
+    pub fn reflect(vec: &Vec3, normal: &Vec3) -> Vec3 {
+        *vec - 2.0 * vec.dot(normal) * *normal
+    }
 }
 
 fn clamp(v: f64, min: f64, max: f64) -> f64 {
