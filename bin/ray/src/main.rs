@@ -35,12 +35,16 @@ fn write_image(file: &str) -> std::io::Result<()> {
     let samples_per_pixel = 100;
     let max_depth = 50;
 
+    let look_from = Point3::new(-2.0, 2.0, 1.0);
+    let look_at = Point3::new(0.0, 0.0, -1.0);
     let camera = Camera::new(CameraConfig {
-        look_from: Point3::new(-2.0, 2.0, 1.0),
-        look_at: Point3::new(0.0, 0.0, -1.0),
+        look_from,
+        look_at,
         view_up: Vec3::new(0.0, 1.0, 0.0),
         vertical_field_of_view_degrees: 30.0,
         aspect_ratio,
+        aperture: 2.0,
+        focus_distance: (look_from - look_at).length(),
     });
 
     // Render
@@ -75,7 +79,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
             for _ in 0..samples_per_pixel {
                 let u = (i as f64 + rand.gen_range(0.0..=1.0)) / (image_width - 1) as f64;
                 let v = (j as f64 + rand.gen_range(0.0..=1.0)) / (image_height - 1) as f64;
-                let ray = camera.get_ray(u, v);
+                let ray = camera.get_ray_defocused(&mut rand, u, v);
                 pixel_color += ray_color(&ray, &mut rand, &world, max_depth);
             }
 

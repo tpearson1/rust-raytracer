@@ -108,6 +108,17 @@ impl Vec3 {
         }
     }
 
+    pub fn random_in_unit_disk(rng: &mut dyn rand::RngCore) -> Vec3 {
+        // Pick a point in the unit square, and reject until the point is in the
+        // unit disk
+        loop {
+            let point = Vec3::new(rng.gen_range(-1.0..=1.0), rng.gen_range(-1.0..=1.0), 0.0);
+            if point.length_squared() < 1.0 {
+                return point;
+            }
+        }
+    }
+
     pub fn random_unit(rng: &mut dyn rand::RngCore) -> Vec3 {
         Self::random_in_unit_sphere(rng).normalized()
     }
