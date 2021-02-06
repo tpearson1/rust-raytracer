@@ -103,6 +103,15 @@ impl Vec3 {
     pub fn random_unit(rng: &mut dyn rand::RngCore) -> Vec3 {
         Self::random_in_unit_sphere(rng).normalized()
     }
+
+    pub fn random_in_hemisphere(rng: &mut dyn rand::RngCore, normal: &Vec3) -> Vec3 {
+        let result = Self::random_in_unit_sphere(rng);
+        if result.dot(normal) > 0.0 {
+            result
+        } else {
+            -result
+        }
+    }
 }
 
 fn clamp(v: f64, min: f64, max: f64) -> f64 {

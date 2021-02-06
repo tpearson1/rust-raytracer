@@ -11,7 +11,12 @@ fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth
     }
 
     if let Some(hit) = world.hit(ray, 0.001, f64::INFINITY) {
+        // Lambertian Diffuse
         let target = hit.point() + hit.normal() + Vec3::random_unit(rng);
+
+        // Alternative Diffuse
+        // let target = hit.point() + hit.normal() + Vec3::random_in_hemisphere(rng, &hit.normal());
+
         let color = ray_color(
             &Ray::new(hit.point(), target - hit.point()),
             rng,
