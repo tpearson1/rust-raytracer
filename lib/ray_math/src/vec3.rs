@@ -22,6 +22,14 @@ impl Vec3 {
         }
     }
 
+    pub fn one() -> Self {
+        Vec3 {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        }
+    }
+
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Vec3 { x, y, z }
     }
@@ -120,6 +128,13 @@ impl Vec3 {
 
     pub fn reflect(vec: &Vec3, normal: &Vec3) -> Vec3 {
         *vec - 2.0 * vec.dot(normal) * *normal
+    }
+
+    pub fn refract(uv: &Vec3, normal: &Vec3, etai_over_etat: f64) -> Vec3 {
+        let cos_theta = (-*uv).dot(normal).min(1.0);
+        let ray_out_perp = etai_over_etat * (*uv + cos_theta * *normal);
+        let ray_out_parallel = -((1.0 - ray_out_perp.length_squared()).abs()).sqrt() * *normal;
+        ray_out_perp + ray_out_parallel
     }
 }
 

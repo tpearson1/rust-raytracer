@@ -3,7 +3,7 @@ use std::{fs::File, rc::Rc};
 
 use rand::Rng;
 use ray_math::{
-    material::{Lambertian, Metal},
+    material::{Dielectric, Lambertian, Metal},
     Camera, Color, Hittable, HittableList, Point3, Ray, Sphere,
 };
 
@@ -24,7 +24,7 @@ fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth
 
     let unit_direction = ray.direction().normalized();
     let t = 0.5 * (unit_direction.y() + 1.0);
-    Color::lerp(Color::new(1.0, 1.0, 1.0), Color::new(0.5, 0.7, 1.0), t)
+    Color::lerp(Color::one(), Color::new(0.5, 0.7, 1.0), t)
 }
 
 fn write_image(file: &str) -> std::io::Result<()> {
@@ -43,9 +43,9 @@ fn write_image(file: &str) -> std::io::Result<()> {
 
     let world = {
         let ground = Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
-        let center = Rc::new(Lambertian::new(Color::new(0.7, 0.3, 0.3)));
-        let left = Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.3));
-        let right = Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 1.0));
+        let center = Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5)));
+        let left = Rc::new(Dielectric::new(1.5));
+        let right = Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.0));
         HittableList::from(vec![
             Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0, ground)),
             Box::new(Sphere::from(Point3::new(0.0, 0.0, -1.0), 0.5, center)),
