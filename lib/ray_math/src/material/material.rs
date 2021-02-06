@@ -1,6 +1,6 @@
 use crate::{Color, HitResult, Ray};
 
-pub trait Material {
+pub trait Material: Send + Sync {
     fn scatter(
         &self,
         rng: &mut dyn rand::RngCore,

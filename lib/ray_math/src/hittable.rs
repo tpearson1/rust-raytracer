@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{material::Material, Point3, Ray, Vec3};
 
-pub trait Hittable {
+pub trait Hittable: Send + Sync {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitResult>;
 }
 
@@ -11,7 +11,7 @@ pub struct HitResult {
     normal: Vec3,
     t: f64,
     front_face: bool,
-    material: Rc<dyn Material>,
+    material: Arc<dyn Material>,
 }
 
 impl HitResult {
@@ -20,7 +20,7 @@ impl HitResult {
         point: Point3,
         outward_normal: Vec3,
         t: f64,
-        material: Rc<dyn Material>,
+        material: Arc<dyn Material>,
     ) -> Self {
         let front_face = ray.direction().dot(&outward_normal) < 0.0;
         let normal = if front_face {

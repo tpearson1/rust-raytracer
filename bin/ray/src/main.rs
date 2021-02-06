@@ -1,11 +1,19 @@
-use std::io::prelude::*;
-use std::{fs::File, rc::Rc};
+use std::{
+    fs::File,
+    io::Write,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use rand::Rng;
 use ray_math::{
     material::{Dielectric, Lambertian, Metal},
     Camera, CameraConfig, Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3,
 };
+use rayon::prelude::*;
 
 fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth: usize) -> Color {
     // If we've exceeded the ray bounce limit, no more light is gathered
@@ -33,7 +41,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
     // Image
     let aspect_ratio = 3.0 / 2.0;
     let image_width = 1200;
-    let image_height = ((image_width as f64) / aspect_ratio) as i32;
+    let image_height = ((image_width as f64) / aspect_ratio) as usize;
     let samples_per_pixel = 500;
     let max_depth = 50;
 
@@ -60,10 +68,37 @@ fn write_image(file: &str) -> std::io::Result<()> {
 
     println!("Configured Scene, starting to render");
 
-    for j in (0..image_height).rev() {
-        print!("\rScanlines remaining: {:<6}", j);
-        std::io::stdout().flush()?;
-        for i in 0..image_width {
+    let pixels_done = Arc::new(AtomicUsize::new(0));
+    let total = image_width * image_height;
+
+    let join_handle = {
+        let pixels_done_reader = Arc::clone(&pixels_done);
+        std::thread::spawn(move || loop {
+            let done = pixels_done_reader.load(Ordering::Relaxed);
+            print!(
+                "\rProgress: {}/{} pixels, {:.2}% done",
+                done,
+                total,
+                100.0 * done as f64 / total as f64
+            );
+
+            std::io::stdout().flush().expect("Couldn't flush stdout");
+            if done == total {
+                println!("");
+                break;
+            }
+
+            std::thread::sleep(Duration::from_millis(500));
+        })
+    };
+
+    let mut pixels: Vec<_> = (0..image_height)
+        .rev()
+        .flat_map(|j| (0..image_width).map(move |i| (i, j)))
+        .enumerate()
+        .par_bridge()
+        .map(|(idx, (i, j))| {
+            let mut rand = rand::thread_rng();
             let mut pixel_color = Color::zero();
             for _ in 0..samples_per_pixel {
                 let u = (i as f64 + rand.gen_range(0.0..=1.0)) / (image_width - 1) as f64;
@@ -78,11 +113,21 @@ fn write_image(file: &str) -> std::io::Result<()> {
                 (scale * pixel_color.y()).sqrt(),
                 (scale * pixel_color.z()).sqrt(),
             );
-            adjusted_color.write_color(&mut f)?;
-        }
+
+            pixels_done.fetch_add(1, Ordering::Relaxed);
+            (idx, adjusted_color)
+        })
+        .collect::<Vec<_>>();
+    pixels.par_sort_unstable_by_key(|(idx, _)| *idx);
+
+    join_handle.join().expect("Counter thread panicked!");
+    println!("Rendered, saving");
+
+    for (_, pixel) in pixels {
+        pixel.write_color(&mut f)?;
     }
 
-    println!("\nDone.");
+    println!("Done.");
 
     Ok(())
 }
@@ -96,7 +141,7 @@ fn main() {
 fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
     let mut world = HittableList::new();
 
-    let ground_material = Rc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
+    let ground_material = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
     world.add(Box::new(Sphere::from(
         Point3::new(0.0, -1000.0, 0.0),
         1000.0,
@@ -119,20 +164,20 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
             let object = match choose_mat {
                 19 => {
                     // Glass
-                    let mat = Rc::new(Dielectric::new(1.5));
+                    let mat = Arc::new(Dielectric::new(1.5));
                     Sphere::from(center, 0.2, mat)
                 }
                 16 | 17 | 18 => {
                     // Metal
                     let albedo = Color::random(rng, 0.5, 1.0);
                     let fuzz = rng.gen_range(0.0..=0.5);
-                    let mat = Rc::new(Metal::new(albedo, fuzz));
+                    let mat = Arc::new(Metal::new(albedo, fuzz));
                     Sphere::from(center, 0.2, mat)
                 }
                 _ => {
                     // Diffuse
                     let albedo = Color::random_unit(rng) * Color::random_unit(rng);
-                    let mat = Rc::new(Lambertian::new(albedo));
+                    let mat = Arc::new(Lambertian::new(albedo));
                     Sphere::from(center, 0.2, mat)
                 }
             };
@@ -141,21 +186,21 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
         }
     }
 
-    let mat1 = Rc::new(Dielectric::new(1.5));
+    let mat1 = Arc::new(Dielectric::new(1.5));
     world.add(Box::new(Sphere::from(
         Point3::new(0.0, 1.0, 0.0),
         1.0,
         mat1,
     )));
 
-    let mat2 = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+    let mat2 = Arc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
     world.add(Box::new(Sphere::from(
         Point3::new(-4.0, 1.0, 0.0),
         1.0,
         mat2,
     )));
 
-    let mat3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
+    let mat3 = Arc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
     world.add(Box::new(Sphere::from(
         Point3::new(4.0, 1.0, 0.0),
         1.0,
