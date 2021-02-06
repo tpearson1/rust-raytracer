@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use ray_math::{Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3};
+use rand::Rng;
+use ray_math::{Camera, Color, Hittable, HittableList, Point3, Ray, Sphere};
 
 fn ray_color(ray: &Ray, world: &dyn Hittable) -> Color {
     if let Some(hit) = world.hit(ray, 0.0, f64::INFINITY) {
@@ -18,17 +19,9 @@ fn write_image(file: &str) -> std::io::Result<()> {
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
     let image_height = ((image_width as f64) / aspect_ratio) as i32;
+    let samples_per_pixel = 100;
 
-    // Camera
-    let viewport_height = 2.0;
-    let viewport_width = aspect_ratio * viewport_height;
-    let focal_length = 1.0;
-
-    let origin = Point3::zero();
-    let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, viewport_height, 0.0);
-    let lower_left_corner =
-        origin - 0.5 * horizontal - 0.5 * vertical - Vec3::new(0.0, 0.0, focal_length);
+    let camera = Camera::new(aspect_ratio);
 
     // Render
     let mut f = File::create(file)?;
@@ -39,18 +32,20 @@ fn write_image(file: &str) -> std::io::Result<()> {
         Box::new(Sphere::from(Point3::new(0.0, -100.5, -1.0), 100.0)),
     ]);
 
+    let mut rand = rand::thread_rng();
+
     for j in (0..image_height).rev() {
         print!("\rScanlines remaining: {:<6}", j);
         for i in 0..image_width {
-            let u = (i as f64) / (image_width - 1) as f64;
-            let v = (j as f64) / (image_height - 1) as f64;
-            let ray = Ray::new(
-                origin,
-                lower_left_corner + u * horizontal + v * vertical - origin,
-            );
+            let mut pixel_color = Color::zero();
+            for _ in 0..samples_per_pixel {
+                let u = (i as f64 + rand.gen_range(0.0..=1.0)) / (image_width - 1) as f64;
+                let v = (j as f64 + rand.gen_range(0.0..=1.0)) / (image_height - 1) as f64;
+                let ray = camera.get_ray(u, v);
+                pixel_color += ray_color(&ray, &world);
+            }
 
-            let pixel_color = ray_color(&ray, &world);
-            pixel_color.write_color(&mut f)?;
+            (pixel_color / samples_per_pixel as f64).write_color(&mut f)?;
         }
     }
 
@@ -60,5 +55,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
 }
 
 fn main() {
-    let _ = write_image("image.ppm");
+    if let Err(_) = write_image("image.ppm") {
+        eprintln!("Failed to generate image");
+    }
 }

@@ -73,11 +73,21 @@ impl Vec3 {
     }
 
     pub fn write_color<TWrite: Write>(&self, writer: &mut TWrite) -> std::io::Result<()> {
-        let ir = (255.999 * self.r()) as usize;
-        let ig = (255.999 * self.g()) as usize;
-        let ib = (255.999 * self.b()) as usize;
+        let ir = (255.999 * clamp(self.r(), 0.0, 0.999)) as usize;
+        let ig = (255.999 * clamp(self.g(), 0.0, 0.999)) as usize;
+        let ib = (255.999 * clamp(self.b(), 0.0, 0.999)) as usize;
         write!(writer, "{} {} {}\n", ir, ig, ib)
     }
+}
+
+fn clamp(v: f64, min: f64, max: f64) -> f64 {
+    if v < min {
+        return min;
+    }
+    if v > max {
+        return max;
+    }
+    return v;
 }
 
 impl Add for Vec3 {

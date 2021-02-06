@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 ray_math = { path = "../../lib/ray_math" }
+rand = "0.8"
