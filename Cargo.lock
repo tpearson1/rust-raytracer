@@ -80,6 +80,9 @@ dependencies = [
 [[package]]
 name = "ray_math"
 version = "0.1.0"
+dependencies = [
+ "rand",
+]
 
 [[package]]
 name = "wasi"

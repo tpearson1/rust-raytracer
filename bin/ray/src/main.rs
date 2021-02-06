@@ -2,11 +2,23 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use rand::Rng;
-use ray_math::{Camera, Color, Hittable, HittableList, Point3, Ray, Sphere};
+use ray_math::{Camera, Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3};
 
-fn ray_color(ray: &Ray, world: &dyn Hittable) -> Color {
-    if let Some(hit) = world.hit(ray, 0.0, f64::INFINITY) {
-        return 0.5 * (hit.normal() + Color::new(1.0, 1.0, 1.0));
+fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth: usize) -> Color {
+    // If we've exceeded the ray bounce limit, no more light is gathered
+    if depth <= 0 {
+        return Color::zero();
+    }
+
+    if let Some(hit) = world.hit(ray, 0.001, f64::INFINITY) {
+        let target = hit.point() + hit.normal() + Vec3::random_unit(rng);
+        let color = ray_color(
+            &Ray::new(hit.point(), target - hit.point()),
+            rng,
+            world,
+            depth - 1,
+        );
+        return 0.5 * color;
     }
 
     let unit_direction = ray.direction().normalized();
@@ -20,6 +32,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
     let image_width = 400;
     let image_height = ((image_width as f64) / aspect_ratio) as i32;
     let samples_per_pixel = 100;
+    let max_depth = 50;
 
     let camera = Camera::new(aspect_ratio);
 
@@ -42,10 +55,16 @@ fn write_image(file: &str) -> std::io::Result<()> {
                 let u = (i as f64 + rand.gen_range(0.0..=1.0)) / (image_width - 1) as f64;
                 let v = (j as f64 + rand.gen_range(0.0..=1.0)) / (image_height - 1) as f64;
                 let ray = camera.get_ray(u, v);
-                pixel_color += ray_color(&ray, &world);
+                pixel_color += ray_color(&ray, &mut rand, &world, max_depth);
             }
 
-            (pixel_color / samples_per_pixel as f64).write_color(&mut f)?;
+            let scale = 1.0 / samples_per_pixel as f64;
+            let adjusted_color = Color::new(
+                (scale * pixel_color.x()).sqrt(),
+                (scale * pixel_color.y()).sqrt(),
+                (scale * pixel_color.z()).sqrt(),
+            );
+            adjusted_color.write_color(&mut f)?;
         }
     }
 

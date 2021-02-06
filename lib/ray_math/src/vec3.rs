@@ -1,6 +1,8 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::{io::Write, ops::Neg};
 
+use rand::Rng;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Vec3 {
     x: f64,
@@ -77,6 +79,29 @@ impl Vec3 {
         let ig = (255.999 * clamp(self.g(), 0.0, 0.999)) as usize;
         let ib = (255.999 * clamp(self.b(), 0.0, 0.999)) as usize;
         write!(writer, "{} {} {}\n", ir, ig, ib)
+    }
+
+    pub fn random(rng: &mut dyn rand::RngCore, min: f64, max: f64) -> Vec3 {
+        Vec3::new(
+            rng.gen_range(min..=max),
+            rng.gen_range(min..=max),
+            rng.gen_range(min..=max),
+        )
+    }
+
+    pub fn random_in_unit_sphere(rng: &mut dyn rand::RngCore) -> Vec3 {
+        // Pick a point in the unit cube, and reject until the point is in the
+        // unit sphere
+        loop {
+            let point = Vec3::random(rng, -1.0, 1.0);
+            if point.length_squared() < 1.0 {
+                return point;
+            }
+        }
+    }
+
+    pub fn random_unit(rng: &mut dyn rand::RngCore) -> Vec3 {
+        Self::random_in_unit_sphere(rng).normalized()
     }
 }
 
