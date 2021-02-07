@@ -11,8 +11,8 @@ use std::{
 use rand::Rng;
 use ray_math::{
     material::{Dielectric, Lambertian, Metal},
-    Camera, CameraConfig, Color, Hittable, HittableList, LerpTransform, Point3, Ray, Sphere,
-    StaticTransform, Vec3,
+    BvhNode, Camera, CameraConfig, Color, Hittable, HittableList, LerpTransform, Point3, Ray,
+    Sphere, StaticTransform, Vec3,
 };
 use rayon::prelude::*;
 
@@ -141,11 +141,12 @@ fn main() {
     }
 }
 
-fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
+fn random_scene(rng: &mut dyn rand::RngCore) -> BvhNode {
     let mut world = HittableList::new();
+    let time_range = 0.0..1.0;
 
     let ground_material = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
-    world.add(Box::new(Sphere::from(
+    world.add(Arc::new(Sphere::from(
         StaticTransform::new(Point3::new(0.0, -1000.0, 0.0)),
         1000.0,
         ground_material,
@@ -164,18 +165,18 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
                 continue;
             }
 
-            let object: Box<dyn Hittable> = match choose_mat {
+            let object: Arc<dyn Hittable> = match choose_mat {
                 19 => {
                     // Glass
                     let mat = Arc::new(Dielectric::new(1.5));
-                    Box::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
+                    Arc::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
                 }
                 16 | 17 | 18 => {
                     // Metal
                     let albedo = Color::random(rng, 0.5, 1.0);
                     let fuzz = rng.gen_range(0.0..=0.5);
                     let mat = Arc::new(Metal::new(albedo, fuzz));
-                    Box::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
+                    Arc::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
                 }
                 _ => {
                     // Diffuse
@@ -185,9 +186,9 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
                     let transform = LerpTransform::new(
                         center,
                         center + Vec3::new(0.0, rng.gen_range(0.0..=0.5), 0.0),
-                        0.0..1.0,
+                        time_range.clone(),
                     );
-                    Box::new(Sphere::from(transform, 0.2, mat))
+                    Arc::new(Sphere::from(transform, 0.2, mat))
                 }
             };
 
@@ -196,25 +197,25 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
     }
 
     let mat1 = Arc::new(Dielectric::new(1.5));
-    world.add(Box::new(Sphere::from(
+    world.add(Arc::new(Sphere::from(
         StaticTransform::new(Point3::new(0.0, 1.0, 0.0)),
         1.0,
         mat1,
     )));
 
     let mat2 = Arc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-    world.add(Box::new(Sphere::from(
+    world.add(Arc::new(Sphere::from(
         StaticTransform::new(Point3::new(-4.0, 1.0, 0.0)),
         1.0,
         mat2,
     )));
 
     let mat3 = Arc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
-    world.add(Box::new(Sphere::from(
+    world.add(Arc::new(Sphere::from(
         StaticTransform::new(Point3::new(4.0, 1.0, 0.0)),
         1.0,
         mat3,
     )));
 
-    world
+    BvhNode::new(rng, world, time_range)
 }

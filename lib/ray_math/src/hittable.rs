@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
-use crate::{material::Material, Point3, Ray, Vec3};
+use crate::{material::Material, Aabb, Point3, Ray, Vec3};
 
 pub trait Hittable: Send + Sync {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitResult>;
+    fn bounding_box(&self, time_range: Range<f64>) -> Option<Aabb>;
 }
 
 pub struct HitResult {

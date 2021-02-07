@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 use std::{io::Write, ops::Neg};
 
 use rand::Rng;
@@ -157,6 +157,36 @@ fn clamp(v: f64, min: f64, max: f64) -> f64 {
         return max;
     }
     return v;
+}
+
+impl Index<usize> for Vec3 {
+    type Output = f64;
+
+    /// # Panics
+    ///
+    /// Panics if the `index` is not 0, 1, or 2
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            _ => panic!("Index out of bounds"),
+        }
+    }
+}
+
+impl IndexMut<usize> for Vec3 {
+    /// # Panics
+    ///
+    /// Panics if the `index` is not 0, 1, or 2
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            2 => &mut self.z,
+            _ => panic!("Index out of bounds"),
+        }
+    }
 }
 
 impl Add for Vec3 {

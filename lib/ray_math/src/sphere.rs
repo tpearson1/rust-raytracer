@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
-use crate::{material::Material, HitResult, Hittable, Ray, Transform};
+use crate::{material::Material, Aabb, HitResult, Hittable, Ray, Transform, Vec3};
 
 pub struct Sphere<T> {
     transform: T,
@@ -56,5 +56,17 @@ impl<T: Transform> Hittable for Sphere<T> {
             root,
             Arc::clone(&self.material),
         ))
+    }
+
+    fn bounding_box(&self, time_range: Range<f64>) -> Option<Aabb> {
+        let offset = Vec3::one() * self.radius;
+
+        let center0 = self.transform.position(time_range.start);
+        let box0 = Aabb::new(center0 - offset, center0 + offset);
+
+        let center1 = self.transform.position(time_range.end);
+        let box1 = Aabb::new(center1 - offset, center1 + offset);
+
+        Some(Aabb::surround(&box0, &box1))
     }
 }

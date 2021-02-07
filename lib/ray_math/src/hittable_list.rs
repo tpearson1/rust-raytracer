@@ -1,7 +1,9 @@
-use crate::{HitResult, Hittable, Ray};
+use std::{ops::Range, sync::Arc};
+
+use crate::{Aabb, HitResult, Hittable, Ray};
 
 pub struct HittableList {
-    list: Vec<Box<dyn Hittable>>,
+    list: Vec<Arc<dyn Hittable>>,
 }
 
 impl HittableList {
@@ -9,7 +11,7 @@ impl HittableList {
         Self { list: Vec::new() }
     }
 
-    pub fn from(list: Vec<Box<dyn Hittable>>) -> Self {
+    pub fn from(list: Vec<Arc<dyn Hittable>>) -> Self {
         Self { list }
     }
 
@@ -17,8 +19,16 @@ impl HittableList {
         self.list.clear()
     }
 
-    pub fn add(&mut self, hittable: Box<dyn Hittable>) {
+    pub fn add(&mut self, hittable: Arc<dyn Hittable>) {
         self.list.push(hittable)
+    }
+
+    pub fn list(&self) -> &[Arc<dyn Hittable>] {
+        &self.list
+    }
+
+    pub fn list_mut(&mut self) -> &mut [Arc<dyn Hittable>] {
+        &mut self.list
     }
 }
 
@@ -34,5 +44,26 @@ impl Hittable for HittableList {
         }
 
         hit_result
+    }
+
+    fn bounding_box(&self, time_range: Range<f64>) -> Option<Aabb> {
+        if self.list.is_empty() {
+            return None;
+        }
+
+        let mut result: Option<Aabb> = None;
+
+        for hittable in &self.list {
+            match hittable.bounding_box(time_range.clone()) {
+                Some(aabb) => {
+                    result = result
+                        .map(|res| Aabb::surround(&res, &aabb))
+                        .or_else(|| Some(aabb));
+                }
+                None => return None,
+            }
+        }
+
+        result
     }
 }
