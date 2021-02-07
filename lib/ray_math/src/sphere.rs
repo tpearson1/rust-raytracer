@@ -1,24 +1,24 @@
 use std::sync::Arc;
 
-use crate::{material::Material, HitResult, Hittable, Ray, Vec3};
+use crate::{material::Material, HitResult, Hittable, Ray, Transform};
 
-pub struct Sphere {
-    center: Vec3,
+pub struct Sphere<T> {
+    transform: T,
     radius: f64,
     material: Arc<dyn Material>,
 }
 
-impl Sphere {
-    pub fn from(center: Vec3, radius: f64, material: Arc<dyn Material>) -> Self {
+impl<T: Transform> Sphere<T> {
+    pub fn from(transform: T, radius: f64, material: Arc<dyn Material>) -> Self {
         Self {
-            center,
+            transform,
             radius,
             material,
         }
     }
 
-    pub fn center(&self) -> Vec3 {
-        self.center
+    pub fn transform(&self) -> &T {
+        &self.transform
     }
 
     pub fn radius(&self) -> f64 {
@@ -26,9 +26,10 @@ impl Sphere {
     }
 }
 
-impl Hittable for Sphere {
+impl<T: Transform> Hittable for Sphere<T> {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitResult> {
-        let oc = ray.origin() - self.center;
+        let center = self.transform().position(ray.time());
+        let oc = ray.origin() - center;
         let a = ray.direction().length_squared();
         let half_b = oc.dot(&ray.direction());
         let c = oc.length_squared() - self.radius * self.radius;
@@ -51,7 +52,7 @@ impl Hittable for Sphere {
         Some(HitResult::new(
             ray,
             point,
-            (point - self.center) / self.radius,
+            (point - center) / self.radius,
             root,
             Arc::clone(&self.material),
         ))

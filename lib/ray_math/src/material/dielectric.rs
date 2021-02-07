@@ -49,7 +49,7 @@ impl Material for Dielectric {
         };
 
         Some(ScatterResult {
-            scattered: Ray::new(hit.point(), direction),
+            scattered: Ray::new(hit.point(), direction, ray_in.time()),
             attenuation: Color::one(),
         })
     }

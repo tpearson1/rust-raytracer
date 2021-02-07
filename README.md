@@ -1,7 +1,7 @@
 # Rust Ray Tracer
 
 Toy ray tracing engine built in Rust for learning purposes. Made following
-[_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html),
+[these ray tracing tutorial books](https://raytracing.github.io/),
 adapting the C++ code.
 
 ## Running

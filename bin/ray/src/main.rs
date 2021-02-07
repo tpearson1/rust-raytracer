@@ -11,7 +11,8 @@ use std::{
 use rand::Rng;
 use ray_math::{
     material::{Dielectric, Lambertian, Metal},
-    Camera, CameraConfig, Color, Hittable, HittableList, Point3, Ray, Sphere, Vec3,
+    Camera, CameraConfig, Color, Hittable, HittableList, LerpTransform, Point3, Ray, Sphere,
+    StaticTransform, Vec3,
 };
 use rayon::prelude::*;
 
@@ -40,10 +41,11 @@ fn write_image(file: &str) -> std::io::Result<()> {
 
     // Image
     let aspect_ratio = 3.0 / 2.0;
-    let image_width = 1200;
+    let image_width = 400;
     let image_height = ((image_width as f64) / aspect_ratio) as usize;
-    let samples_per_pixel = 500;
+    let samples_per_pixel = 100;
     let max_depth = 50;
+    let motion_time_range = 0.0..1.0;
 
     let look_from = Point3::new(13.0, 2.0, 3.0);
     let look_at = Point3::zero();
@@ -60,8 +62,6 @@ fn write_image(file: &str) -> std::io::Result<()> {
     println!("Configured Camera");
 
     // Render
-    let mut f = File::create(file)?;
-    write!(f, "P3\n{} {}\n255\n", image_width, image_height)?;
 
     let mut rand = rand::thread_rng();
     let world = random_scene(&mut rand);
@@ -103,7 +103,8 @@ fn write_image(file: &str) -> std::io::Result<()> {
             for _ in 0..samples_per_pixel {
                 let u = (i as f64 + rand.gen_range(0.0..=1.0)) / (image_width - 1) as f64;
                 let v = (j as f64 + rand.gen_range(0.0..=1.0)) / (image_height - 1) as f64;
-                let ray = camera.get_ray_defocused(&mut rand, u, v);
+                let ray =
+                    camera.get_ray_defocused(&mut rand, Some(motion_time_range.clone()), u, v);
                 pixel_color += ray_color(&ray, &mut rand, &world, max_depth);
             }
 
@@ -123,6 +124,8 @@ fn write_image(file: &str) -> std::io::Result<()> {
     join_handle.join().expect("Counter thread panicked!");
     println!("Rendered, saving");
 
+    let mut f = File::create(file)?;
+    write!(f, "P3\n{} {}\n255\n", image_width, image_height)?;
     for (_, pixel) in pixels {
         pixel.write_color(&mut f)?;
     }
@@ -143,7 +146,7 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
 
     let ground_material = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
     world.add(Box::new(Sphere::from(
-        Point3::new(0.0, -1000.0, 0.0),
+        StaticTransform::new(Point3::new(0.0, -1000.0, 0.0)),
         1000.0,
         ground_material,
     )));
@@ -161,48 +164,54 @@ fn random_scene(rng: &mut dyn rand::RngCore) -> HittableList {
                 continue;
             }
 
-            let object = match choose_mat {
+            let object: Box<dyn Hittable> = match choose_mat {
                 19 => {
                     // Glass
                     let mat = Arc::new(Dielectric::new(1.5));
-                    Sphere::from(center, 0.2, mat)
+                    Box::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
                 }
                 16 | 17 | 18 => {
                     // Metal
                     let albedo = Color::random(rng, 0.5, 1.0);
                     let fuzz = rng.gen_range(0.0..=0.5);
                     let mat = Arc::new(Metal::new(albedo, fuzz));
-                    Sphere::from(center, 0.2, mat)
+                    Box::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
                 }
                 _ => {
                     // Diffuse
                     let albedo = Color::random_unit(rng) * Color::random_unit(rng);
                     let mat = Arc::new(Lambertian::new(albedo));
-                    Sphere::from(center, 0.2, mat)
+
+                    let transform = LerpTransform::new(
+                        center,
+                        center + Vec3::new(0.0, rng.gen_range(0.0..=0.5), 0.0),
+                        0.0..1.0,
+                    );
+                    Box::new(Sphere::from(transform, 0.2, mat))
                 }
             };
 
-            world.add(Box::new(object));
+            world.add(object);
         }
     }
 
     let mat1 = Arc::new(Dielectric::new(1.5));
     world.add(Box::new(Sphere::from(
-        Point3::new(0.0, 1.0, 0.0),
+        StaticTransform::new(Point3::new(0.0, 1.0, 0.0)),
         1.0,
         mat1,
     )));
 
     let mat2 = Arc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
     world.add(Box::new(Sphere::from(
-        Point3::new(-4.0, 1.0, 0.0),
+        StaticTransform::new(Point3::new(-4.0, 1.0, 0.0)),
         1.0,
         mat2,
     )));
 
     let mat3 = Arc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
     world.add(Box::new(Sphere::from(
-        Point3::new(4.0, 1.0, 0.0),
+        StaticTransform::new(Point3::new(4.0, 1.0, 0.0)),
         1.0,
         mat3,
     )));

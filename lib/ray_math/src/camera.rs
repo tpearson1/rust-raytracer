@@ -1,4 +1,6 @@
-use std::f64;
+use std::{f64, ops::Range};
+
+use rand::Rng;
 
 use crate::{Point3, Ray, Vec3};
 
@@ -55,16 +57,24 @@ impl Camera {
         Ray::new(
             self.origin,
             self.lower_left_corner + s * self.horizontal + t * self.vertical - self.origin,
+            0.0,
         )
     }
 
-    pub fn get_ray_defocused(&self, rng: &mut dyn rand::RngCore, s: f64, t: f64) -> Ray {
+    pub fn get_ray_defocused(
+        &self,
+        rng: &mut dyn rand::RngCore,
+        time_range: Option<Range<f64>>,
+        s: f64,
+        t: f64,
+    ) -> Ray {
         let rd = self.lens_radius * Vec3::random_in_unit_disk(rng);
         let offset = self.u * rd.x() + self.v * rd.y();
 
         Ray::new(
             self.origin + offset,
             self.lower_left_corner + s * self.horizontal + t * self.vertical - self.origin - offset,
+            time_range.map_or(0.0, |range| rng.gen_range(range)),
         )
     }
 }
