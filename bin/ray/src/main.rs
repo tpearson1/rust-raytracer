@@ -39,7 +39,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
     println!("Starting");
 
     let mut rand = rand::thread_rng();
-    let world = scenes::make_scene(&mut rand, SceneOption::TwoSpheres);
+    let world = scenes::make_scene(&mut rand, SceneOption::TwoPerlinSpheres);
 
     // Image
     let image_width = 400;
