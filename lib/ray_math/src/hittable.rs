@@ -11,6 +11,7 @@ pub struct HitResult {
     point: Point3,
     normal: Vec3,
     t: f64,
+    uv: (f64, f64),
     front_face: bool,
     material: Arc<dyn Material>,
 }
@@ -21,6 +22,7 @@ impl HitResult {
         point: Point3,
         outward_normal: Vec3,
         t: f64,
+        uv: (f64, f64),
         material: Arc<dyn Material>,
     ) -> Self {
         let front_face = ray.direction().dot(&outward_normal) < 0.0;
@@ -34,6 +36,7 @@ impl HitResult {
             point,
             normal,
             t,
+            uv,
             front_face,
             material,
         }
@@ -49,6 +52,10 @@ impl HitResult {
 
     pub fn t(&self) -> f64 {
         self.t
+    }
+
+    pub fn uv(&self) -> (f64, f64) {
+        self.uv
     }
 
     pub fn front_face(&self) -> bool {

@@ -9,6 +9,7 @@ mod transform;
 mod vec3;
 
 pub mod material;
+pub mod texture;
 
 pub use aabb::*;
 pub use bvh_node::*;

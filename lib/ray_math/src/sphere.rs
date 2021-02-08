@@ -1,6 +1,6 @@
-use std::{ops::Range, sync::Arc};
+use std::{f64, ops::Range, sync::Arc};
 
-use crate::{material::Material, Aabb, HitResult, Hittable, Ray, Transform, Vec3};
+use crate::{material::Material, Aabb, HitResult, Hittable, Point3, Ray, Transform, Vec3};
 
 pub struct Sphere<T> {
     transform: T,
@@ -23,6 +23,21 @@ impl<T: Transform> Sphere<T> {
 
     pub fn radius(&self) -> f64 {
         self.radius
+    }
+
+    /// `point`: a given point on the sphere of radius one, centered at the origin.
+    /// `u`: returned value [0,1] of angle around the Y axis from X=-1.
+    /// `v`: returned value [0,1] of angle from Y=-1 to Y=+1.
+    ///     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
+    ///     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
+    ///     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
+    fn get_uv(point: &Point3) -> (f64, f64) {
+        let theta = (-point.y()).acos();
+        let phi = (-point.z()).atan2(point.x()) + f64::consts::PI;
+        (
+            phi * 0.5 * f64::consts::FRAC_1_PI,
+            theta * f64::consts::FRAC_1_PI,
+        )
     }
 }
 
@@ -49,11 +64,13 @@ impl<T: Transform> Hittable for Sphere<T> {
         }
 
         let point = ray.at(root);
+        let outward_normal = (point - center) / self.radius;
         Some(HitResult::new(
             ray,
             point,
-            (point - center) / self.radius,
+            outward_normal,
             root,
+            Self::get_uv(&outward_normal),
             Arc::clone(&self.material),
         ))
     }

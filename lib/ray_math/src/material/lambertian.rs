@@ -1,18 +1,20 @@
-use crate::{Color, Ray, Vec3};
+use std::sync::Arc;
+
+use crate::{texture::Texture, Ray, Vec3};
 
 use super::{Material, ScatterResult};
 
 pub struct Lambertian {
-    albedo: Color,
+    albedo: Arc<dyn Texture>,
 }
 
 impl Lambertian {
-    pub fn new(albedo: Color) -> Self {
+    pub fn new(albedo: Arc<dyn Texture>) -> Self {
         Self { albedo }
     }
 
-    pub fn albedo(&self) -> Color {
-        self.albedo
+    pub fn albedo(&self) -> &dyn Texture {
+        &*self.albedo
     }
 }
 
@@ -31,7 +33,7 @@ impl Material for Lambertian {
 
         Some(ScatterResult {
             scattered: Ray::new(hit.point(), scatter_direction, ray_in.time()),
-            attenuation: self.albedo,
+            attenuation: self.albedo.value(hit.uv(), &hit.point()),
         })
     }
 }

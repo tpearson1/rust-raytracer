@@ -9,12 +9,11 @@ use std::{
 };
 
 use rand::Rng;
-use ray_math::{
-    material::{Dielectric, Lambertian, Metal},
-    BvhNode, Camera, CameraConfig, Color, Hittable, HittableList, LerpTransform, Point3, Ray,
-    Sphere, StaticTransform, Vec3,
-};
+use ray_math::{Camera, Color, Hittable, Ray};
 use rayon::prelude::*;
+use scenes::SceneOption;
+
+mod scenes;
 
 fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth: usize) -> Color {
     // If we've exceeded the ray bounce limit, no more light is gathered
@@ -39,32 +38,17 @@ fn ray_color(ray: &Ray, rng: &mut dyn rand::RngCore, world: &dyn Hittable, depth
 fn write_image(file: &str) -> std::io::Result<()> {
     println!("Starting");
 
+    let mut rand = rand::thread_rng();
+    let world = scenes::make_scene(&mut rand, SceneOption::TwoSpheres);
+
     // Image
-    let aspect_ratio = 3.0 / 2.0;
     let image_width = 400;
-    let image_height = ((image_width as f64) / aspect_ratio) as usize;
-    let samples_per_pixel = 100;
+    let image_height = ((image_width as f64) / world.camera.aspect_ratio) as usize;
+    let samples_per_pixel = 500;
     let max_depth = 50;
     let motion_time_range = 0.0..1.0;
 
-    let look_from = Point3::new(13.0, 2.0, 3.0);
-    let look_at = Point3::zero();
-    let camera = Camera::new(CameraConfig {
-        look_from,
-        look_at,
-        view_up: Vec3::new(0.0, 1.0, 0.0),
-        vertical_field_of_view_degrees: 20.0,
-        aspect_ratio,
-        aperture: 0.1,
-        focus_distance: 10.0,
-    });
-
-    println!("Configured Camera");
-
-    // Render
-
-    let mut rand = rand::thread_rng();
-    let world = random_scene(&mut rand);
+    let camera = Camera::new(world.camera);
 
     println!("Configured Scene, starting to render");
 
@@ -92,6 +76,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
         })
     };
 
+    let root = world.root;
     let mut pixels: Vec<_> = (0..image_height)
         .rev()
         .flat_map(|j| (0..image_width).map(move |i| (i, j)))
@@ -105,7 +90,7 @@ fn write_image(file: &str) -> std::io::Result<()> {
                 let v = (j as f64 + rand.gen_range(0.0..=1.0)) / (image_height - 1) as f64;
                 let ray =
                     camera.get_ray_defocused(&mut rand, Some(motion_time_range.clone()), u, v);
-                pixel_color += ray_color(&ray, &mut rand, &world, max_depth);
+                pixel_color += ray_color(&ray, &mut rand, &root, max_depth);
             }
 
             let scale = 1.0 / samples_per_pixel as f64;
@@ -139,83 +124,4 @@ fn main() {
     if let Err(_) = write_image("image.ppm") {
         eprintln!("Failed to generate image");
     }
-}
-
-fn random_scene(rng: &mut dyn rand::RngCore) -> BvhNode {
-    let mut world = HittableList::new();
-    let time_range = 0.0..1.0;
-
-    let ground_material = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
-    world.add(Arc::new(Sphere::from(
-        StaticTransform::new(Point3::new(0.0, -1000.0, 0.0)),
-        1000.0,
-        ground_material,
-    )));
-
-    for a in -11..11 {
-        for b in -11..11 {
-            let choose_mat = rng.gen_range(0..20);
-            let center = Point3::new(
-                a as f64 + 0.9 * rng.gen_range(0.0..=1.0),
-                0.2,
-                b as f64 + 0.9 * rng.gen_range(0.0..=1.0),
-            );
-
-            if (center - Point3::new(4.0, 0.2, 0.0)).length() <= 0.9 {
-                continue;
-            }
-
-            let object: Arc<dyn Hittable> = match choose_mat {
-                19 => {
-                    // Glass
-                    let mat = Arc::new(Dielectric::new(1.5));
-                    Arc::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
-                }
-                16 | 17 | 18 => {
-                    // Metal
-                    let albedo = Color::random(rng, 0.5, 1.0);
-                    let fuzz = rng.gen_range(0.0..=0.5);
-                    let mat = Arc::new(Metal::new(albedo, fuzz));
-                    Arc::new(Sphere::from(StaticTransform::new(center), 0.2, mat))
-                }
-                _ => {
-                    // Diffuse
-                    let albedo = Color::random_unit(rng) * Color::random_unit(rng);
-                    let mat = Arc::new(Lambertian::new(albedo));
-
-                    let transform = LerpTransform::new(
-                        center,
-                        center + Vec3::new(0.0, rng.gen_range(0.0..=0.5), 0.0),
-                        time_range.clone(),
-                    );
-                    Arc::new(Sphere::from(transform, 0.2, mat))
-                }
-            };
-
-            world.add(object);
-        }
-    }
-
-    let mat1 = Arc::new(Dielectric::new(1.5));
-    world.add(Arc::new(Sphere::from(
-        StaticTransform::new(Point3::new(0.0, 1.0, 0.0)),
-        1.0,
-        mat1,
-    )));
-
-    let mat2 = Arc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-    world.add(Arc::new(Sphere::from(
-        StaticTransform::new(Point3::new(-4.0, 1.0, 0.0)),
-        1.0,
-        mat2,
-    )));
-
-    let mat3 = Arc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
-    world.add(Arc::new(Sphere::from(
-        StaticTransform::new(Point3::new(4.0, 1.0, 0.0)),
-        1.0,
-        mat3,
-    )));
-
-    BvhNode::new(rng, world, time_range)
 }
