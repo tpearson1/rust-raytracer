@@ -20,11 +20,12 @@ impl Noise {
 
 impl Texture for Noise {
     fn value(&self, _uv: (f64, f64), point: &Point3) -> Color {
-        Color::one() * 0.5 * (1.0 + self.perlin.noise(&(self.scale * *point)))
+        let turb = self.perlin.turbulance(point, 7);
+        Color::one() * 0.5 * (1.0 + (self.scale * point.z() + 10.0 * turb).sin())
     }
 }
 
-struct Perlin {
+pub struct Perlin {
     random: Vec<Vec3>,
     perm_x: Vec<i32>,
     perm_y: Vec<i32>,
@@ -34,7 +35,7 @@ struct Perlin {
 const POINT_COUNT: i32 = 256;
 
 impl Perlin {
-    fn new(rng: &mut dyn rand::RngCore) -> Self {
+    pub fn new(rng: &mut dyn rand::RngCore) -> Self {
         Self {
             random: (0..POINT_COUNT)
                 .map(|_| Vec3::random(rng, -1.0, 1.0).normalized())
@@ -45,7 +46,7 @@ impl Perlin {
         }
     }
 
-    fn noise(&self, point: &Point3) -> f64 {
+    pub fn noise(&self, point: &Point3) -> f64 {
         let u = point.x() - point.x().floor();
         let v = point.y() - point.y().floor();
         let w = point.z() - point.z().floor();
@@ -67,6 +68,20 @@ impl Perlin {
         }
 
         Self::perlin_interp(&c, u, v, w)
+    }
+
+    pub fn turbulance(&self, point: &Point3, depth: usize) -> f64 {
+        let mut accum = 0.0;
+        let mut temp_p = *point;
+        let mut weight = 1.0;
+
+        for _ in 0..depth {
+            accum += weight * self.noise(&temp_p);
+            weight *= 0.5;
+            temp_p *= 2.0;
+        }
+
+        accum.abs()
     }
 
     fn perlin_generate_perm(rng: &mut dyn rand::RngCore) -> Vec<i32> {
