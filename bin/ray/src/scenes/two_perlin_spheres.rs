@@ -11,7 +11,7 @@ pub fn scene(rng: &mut dyn rand::RngCore) -> SceneConfig {
     let mut world = HittableList::new();
     let time_range = 0.0..1.0;
 
-    let texture = Arc::new(Noise::new(rng));
+    let texture = Arc::new(Noise::new(rng, 4.0));
 
     world.add(Arc::new(Sphere::from(
         StaticTransform::new(Point3::new(0.0, -1000.0, 0.0)),
